@@ -1,23 +1,28 @@
 {
-"expo": {
-"name": "Abdiqadir Vision",
-"slug": "abdiqadir-vision",
-"version": "1.0.0",
-"orientation": "portrait",
-"userInterfaceStyle": "light",
-"ios": {
-"supportsTablet": true,
-"bundleIdentifier": "com.abdiqadir.vision"
-},
-"android": {
-"package": "com.abdiqadir.vision",
-"versionCode": 1,
-"adaptiveIcon": {
-"backgroundColor": "#ffffff"
-}
-},
-"web": {
-"bundler": "metro"
-}
-}
+  "expo": {
+    "name": "Abdiqadir Vision",
+    "slug": "abdiqadir-vision",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.abdiqadir.vision"
+    },
+    "android": {
+      "package": "com.abdiqadir.vision",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1151537d-b2f8-4946-9a09-f23758949c9c"
+      }
+    }
+  }
 }
