@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,13 +15,17 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
-const SUPABASE_URL =
-  "https://zzrvmgserllvieuswncp.supabase.co";
-
-const SUPABASE_KEY =
-  "sb_publishable_uZ7EhY1iXJGlgC1W2xIXuQ_xTThCf0r";
-
+const SUPABASE_URL = "https://zzrvmgserllvieuswncp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_uZ7EhY1iXJGlgC1W2xIXuQ_xTThCf0r";
 const BUCKET = "media";
+
+function encodeStoragePath(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function getPublicUrl(fileName) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeStoragePath(fileName)}`;
+}
 
 export default function App() {
   const [files, setFiles] = useState([]);
@@ -31,10 +34,9 @@ export default function App() {
 
   const headers = {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
   };
 
-  async function loadFiles() {
+  const loadFiles = useCallback(async () => {
     setLoading(true);
 
     try {
@@ -59,25 +61,28 @@ export default function App() {
       );
 
       if (!response.ok) {
-        throw new Error("Kaydka lama soo akhrin karin.");
+        const message = await response.text();
+        throw new Error(message || "Kaydka lama soo akhrin karin.");
       }
 
       const data = await response.json();
 
-      setFiles(
-        data
-          .filter((item) => item.name)
-          .map((item) => ({
-            ...item,
-            url: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(item.name)}`,
-          }))
-      );
+      const safeFiles = Array.isArray(data)
+        ? data
+            .filter((item) => item && item.name && !item.id)
+            .map((item) => ({
+              ...item,
+              url: getPublicUrl(item.name),
+            }))
+        : [];
+
+      setFiles(safeFiles);
     } catch (error) {
-      Alert.alert("Khalad", error.message);
+      Alert.alert("Khalad", error?.message || "Kaydka lama soo akhrin karin.");
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   async function uploadMedia() {
     try {
@@ -87,16 +92,15 @@ export default function App() {
       if (!permission.granted) {
         Alert.alert(
           "Oggolaansho",
-          "Fadlan oggolow gelitaanka sawirrada."
+          "Fadlan oggolow gelitaanka sawirrada iyo muuqaalada."
         );
         return;
       }
 
-      const result =
-        await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images", "videos"],
-          quality: 0.8,
-        });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images", "videos"],
+        quality: 0.8,
+      });
 
       if (result.canceled || !result.assets?.length) {
         return;
@@ -106,8 +110,10 @@ export default function App() {
 
       const asset = result.assets[0];
 
+      const originalExtension = asset.fileName?.split(".").pop();
+
       const extension =
-        asset.fileName?.split(".").pop() ||
+        originalExtension ||
         (asset.type === "video" ? "mp4" : "jpg");
 
       const fileName = `${Date.now()}.${extension}`;
@@ -117,13 +123,14 @@ export default function App() {
       );
 
       const response = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`,
+        `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(fileName)}`,
         {
           method: "POST",
           headers: {
             ...headers,
             "Content-Type":
-              asset.mimeType || "application/octet-stream",
+              asset.mimeType ||
+              (asset.type === "video" ? "video/mp4" : "image/jpeg"),
             "x-upsert": "false",
           },
           body: fileBlob,
@@ -131,40 +138,52 @@ export default function App() {
       );
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const message = await response.text();
+        throw new Error(message || "Faylka lama soo gelin karin.");
       }
 
       Alert.alert("Waa guul!", "Faylkaaga waa la kaydiyey.");
+
       await loadFiles();
     } catch (error) {
-      Alert.alert("Soo gelintu way fashilantay", error.message);
+      Alert.alert(
+        "Soo gelintu way fashilantay",
+        error?.message || "Fadlan mar kale isku day."
+      );
     } finally {
       setUploading(false);
     }
   }
 
   async function shareFile(url) {
-    await Share.share({ message: url });
+    try {
+      await Share.share({ message: url });
+    } catch (error) {
+      Alert.alert("Khalad", "Faylka lama wadaagi karin.");
+    }
   }
 
   useEffect(() => {
     loadFiles();
-  }, []);
+  }, [loadFiles]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.logo}>AV</Text>
+
         <Text style={styles.title}>Abdiqadir Vision</Text>
+
         <Text style={styles.subtitle}>
           Your memories, safely stored.
         </Text>
       </View>
 
       <TouchableOpacity
-        style={styles.uploadButton}
+        style={[styles.uploadButton, uploading && styles.disabledButton]}
         onPress={uploadMedia}
         disabled={uploading}
+        activeOpacity={0.8}
       >
         {uploading ? (
           <ActivityIndicator color="#000" />
@@ -177,7 +196,7 @@ export default function App() {
 
       <Text style={styles.sectionTitle}>Kaydkayga</Text>
 
-      {loading ? (
+      {loading && files.length === 0 ? (
         <ActivityIndicator color="#D6AD48" size="large" />
       ) : (
         <FlatList
@@ -197,13 +216,17 @@ export default function App() {
             </Text>
           }
           renderItem={({ item }) => {
-            const isVideo =
-              /\.(mp4|mov|m4v|webm)$/i.test(item.name);
+            const isVideo = /\.(mp4|mov|m4v|webm)$/i.test(item.name);
 
             return (
               <View style={styles.card}>
                 <TouchableOpacity
-                  onPress={() => Linking.openURL(item.url)}
+                  onPress={() =>
+                    Linking.openURL(item.url).catch(() =>
+                      Alert.alert("Khalad", "Faylka lama furi karin.")
+                    )
+                  }
+                  activeOpacity={0.85}
                 >
                   {isVideo ? (
                     <View style={styles.videoBox}>
@@ -276,6 +299,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 25,
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   uploadText: {
     color: "#080808",
