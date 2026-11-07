@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, FlatList, Image, Linking,
   RefreshControl, SafeAreaView, ScrollView, Share,
@@ -24,27 +24,39 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   },
 });
 
+const GOLD = "#D6AD48";
+const BG = "#F8F8FC";
+const PURPLE = "#6250E8";
+
+const countries = ["SOMALIA", "KENYA", "DJIBOUTI", "ETHIOPIA", "ERITREA"];
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [role, setRole] = useState("visitor");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState("Home");
+  const [country, setCountry] = useState("SOMALIA");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginOpen, setLoginOpen] = useState(false);
+
   const [selectedPost, setSelectedPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [displayName, setDisplayName] = useState("Marti");
+
   const [likes, setLikes] = useState({});
   const [viewCounts, setViewCounts] = useState({});
+
   const [privateContent, setPrivateContent] = useState([]);
   const [privateOpen, setPrivateOpen] = useState(false);
   const [privateText, setPrivateText] = useState("");
 
-  const isManager = role === "owner" || role === "admin";
   const userId = session?.user?.id;
+  const isManager = role === "owner" || role === "admin";
 
   const ensureAnonymousSession = useCallback(async () => {
     const { data: { session: current } } =
@@ -84,12 +96,7 @@ export default function App() {
       .eq("user_id", uid)
       .maybeSingle();
 
-    if (error) {
-      setRole("visitor");
-      return;
-    }
-
-    setRole(data?.role === "admin" ? "admin" : "visitor");
+    setRole(!error && data?.role === "admin" ? "admin" : "visitor");
   }, []);
 
   const loadPosts = useCallback(async () => {
@@ -102,31 +109,35 @@ export default function App() {
 
     setPosts(data || []);
 
-    const ids = (data || []).map((p) => p.id);
+    const ids = (data || []).map(p => p.id);
 
-    if (ids.length) {
-      const [likeResult, viewResult] = await Promise.all([
-        supabase.from("post_likes")
-          .select("post_id").in("post_id", ids),
-        supabase.from("post_views")
-          .select("post_id").in("post_id", ids),
-      ]);
+    if (!ids.length) {
+      setLikes({});
+      setViewCounts({});
+      return;
+    }
 
-      if (!likeResult.error) {
-        const counts = {};
-        (likeResult.data || []).forEach((r) => {
-          counts[r.post_id] = (counts[r.post_id] || 0) + 1;
-        });
-        setLikes(counts);
-      }
+    const [likeResult, viewResult] = await Promise.all([
+      supabase.from("post_likes")
+        .select("post_id").in("post_id", ids),
+      supabase.from("post_views")
+        .select("post_id").in("post_id", ids),
+    ]);
 
-      if (!viewResult.error) {
-        const counts = {};
-        (viewResult.data || []).forEach((r) => {
-          counts[r.post_id] = (counts[r.post_id] || 0) + 1;
-        });
-        setViewCounts(counts);
-      }
+    if (!likeResult.error) {
+      const counts = {};
+      (likeResult.data || []).forEach(r => {
+        counts[r.post_id] = (counts[r.post_id] || 0) + 1;
+      });
+      setLikes(counts);
+    }
+
+    if (!viewResult.error) {
+      const counts = {};
+      (viewResult.data || []).forEach(r => {
+        counts[r.post_id] = (counts[r.post_id] || 0) + 1;
+      });
+      setViewCounts(counts);
     }
   }, []);
 
@@ -138,17 +149,11 @@ export default function App() {
       .select("id,content,created_at")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      Alert.alert("Qaybta gaarka ah", error.message);
-      return;
-    }
-
-    setPrivateContent(data || []);
+    if (!error) setPrivateContent(data || []);
   }, [role]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-
     try {
       await loadPosts();
     } catch (e) {
@@ -172,19 +177,15 @@ export default function App() {
         await loadRole(current.user.id);
       } else {
         const anonymous = await ensureAnonymousSession();
-
-        if (anonymous) {
-          await loadRole(anonymous.user.id);
-        }
+        if (anonymous) await loadRole(anonymous.user.id);
       }
 
-      await refresh();
+      if (mounted) await refresh();
     })();
 
     const { data: listener } =
       supabase.auth.onAuthStateChange((_event, nextSession) => {
         setSession(nextSession);
-
         if (nextSession?.user?.id) {
           loadRole(nextSession.user.id);
         } else {
@@ -204,17 +205,16 @@ export default function App() {
 
   async function signInOwner() {
     if (!email.trim() || !password) {
-      Alert.alert("Gelitaan", "Geli email-ka iyo password-kaaga.");
+      Alert.alert("Gelitaan", "Geli email-ka iyo password-ka.");
       return;
     }
 
     setBusy(true);
 
-    const { data, error } =
-      await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
     setBusy(false);
 
@@ -231,30 +231,19 @@ export default function App() {
 
   async function signOut() {
     await supabase.auth.signOut();
-
     setSession(null);
     setRole("visitor");
-
     await ensureAnonymousSession();
   }
 
   async function uploadPost() {
-    if (!isManager) {
-      Alert.alert(
-        "Oggolaansho ma lihid",
-        "Kaliya Owner ama Admin ayaa wax soo gelin kara."
-      );
-      return;
-    }
+    if (!isManager) return;
 
     const permission =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert(
-        "Oggolaansho",
-        "Fadlan oggolow gelitaanka sawirrada iyo muuqaalada."
-      );
+      Alert.alert("Oggolaansho", "Oggolow gelitaanka sawirrada.");
       return;
     }
 
@@ -266,21 +255,18 @@ export default function App() {
     if (result.canceled || !result.assets?.length) return;
 
     const asset = result.assets[0];
-
     setBusy(true);
 
     try {
-      const ext =
-        asset.fileName?.split(".").pop() ||
+      const ext = asset.fileName?.split(".").pop() ||
         (asset.type === "video" ? "mp4" : "jpg");
 
-      const path =
-        `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const path = `${Date.now()}-${Math.random()
+        .toString(36).slice(2, 8)}.${ext}`;
 
       const blob = await (await fetch(asset.uri)).blob();
 
-      const contentType =
-        asset.mimeType ||
+      const contentType = asset.mimeType ||
         (asset.type === "video" ? "video/mp4" : "image/jpeg");
 
       const { error: uploadError } =
@@ -303,14 +289,10 @@ export default function App() {
 
       if (insertError) throw insertError;
 
-      Alert.alert("Waa guul", "Faylka waa la soo geliyey.");
-
+      Alert.alert("Waa guul", "Waa la soo geliyey.");
       await refresh();
     } catch (e) {
-      Alert.alert(
-        "Soo gelintu way fashilantay",
-        e.message || "Mar kale isku day."
-      );
+      Alert.alert("Khalad", e.message);
     } finally {
       setBusy(false);
     }
@@ -328,11 +310,10 @@ export default function App() {
 
     if (userId) {
       const { error: viewError } = await supabase
-        .from("post_views")
-        .insert({ post_id: post.id });
+        .from("post_views").insert({ post_id: post.id });
 
-      if (!viewError && role === "owner") {
-        setViewCounts((old) => ({
+      if (!viewError) {
+        setViewCounts(old => ({
           ...old,
           [post.id]: (old[post.id] || 0) + 1,
         }));
@@ -341,12 +322,7 @@ export default function App() {
   }
 
   async function addComment() {
-    if (!userId) {
-      Alert.alert("Sug", "Fadlan sug inta booqde ahaan laguu gelinayo.");
-      return;
-    }
-
-    if (!commentText.trim() || !selectedPost) return;
+    if (!userId || !commentText.trim() || !selectedPost) return;
 
     const { error } = await supabase.from("comments").insert({
       post_id: selectedPost.id,
@@ -355,10 +331,7 @@ export default function App() {
       user_id: userId,
     });
 
-    if (error) {
-      Alert.alert("Faallo", error.message);
-      return;
-    }
+    if (error) return Alert.alert("Faallo", error.message);
 
     setCommentText("");
 
@@ -371,9 +344,7 @@ export default function App() {
   }
 
   async function toggleLike(post) {
-    if (!userId) {
-      return Alert.alert("Sug", "Booqde ahaan ayaa laguu gelinayaa.");
-    }
+    if (!userId) return;
 
     const { data: existing } = await supabase.from("post_likes")
       .select("post_id")
@@ -383,16 +354,13 @@ export default function App() {
 
     if (existing) {
       const { error } = await supabase.from("post_likes").delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId);
-
+        .eq("post_id", post.id).eq("user_id", userId);
       if (error) return Alert.alert("Like", error.message);
     } else {
       const { error } = await supabase.from("post_likes").insert({
         post_id: post.id,
         user_id: userId,
       });
-
       if (error) return Alert.alert("Like", error.message);
     }
 
@@ -400,20 +368,15 @@ export default function App() {
   }
 
   async function followOwner() {
-    if (!userId) {
-      return Alert.alert("Sug", "Booqde ahaan ayaa laguu gelinayaa.");
-    }
+    if (!userId) return;
 
     const { error } = await supabase.from("follows").upsert({
       follower_id: userId,
       following_id: OWNER_ID,
     }, { onConflict: "follower_id,following_id" });
 
-    if (error) {
-      Alert.alert("Follow", error.message);
-    } else {
-      Alert.alert("Waa guul", "Waad raacday Abdiqadir Vision.");
-    }
+    if (error) Alert.alert("Follow", error.message);
+    else Alert.alert("Waa guul", "Waad raacday Abdiqadir Vision.");
   }
 
   async function savePrivate() {
@@ -423,10 +386,7 @@ export default function App() {
       content: privateText.trim(),
     });
 
-    if (error) {
-      Alert.alert("Private", error.message);
-      return;
-    }
+    if (error) return Alert.alert("Private", error.message);
 
     setPrivateText("");
     await loadPrivate();
@@ -440,149 +400,385 @@ export default function App() {
     }
   }
 
-  const header = useMemo(() => (
-    <View>
-      <View style={styles.brand}>
-        <Text style={styles.logo}>AV</Text>
-        <Text style={styles.title}>Abdiqadir Vision</Text>
-        <Text style={styles.subtitle}>Your memories, safely stored.</Text>
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.goldButton} onPress={followOwner}>
-          <Text style={styles.goldText}>＋ Follow</Text>
+  function PostCard({ item }) {
+    return (
+      <View style={styles.postCard}>
+        <TouchableOpacity onPress={() => openPost(item)}>
+          {item.media_type === "video" ? (
+            <View style={styles.videoBox}>
+              <Text style={styles.playIcon}>▶</Text>
+              <Text style={styles.videoText}>Daawo muuqaalka</Text>
+            </View>
+          ) : (
+            <Image
+              source={{ uri: item.media_url }}
+              style={styles.postImage}
+              resizeMode="cover"
+            />
+          )}
+          <Text style={styles.postTitle} numberOfLines={2}>
+            {item.title || "Abdiqadir Vision"}
+          </Text>
         </TouchableOpacity>
 
-        {isManager && (
-          <TouchableOpacity style={styles.goldButton} onPress={uploadPost} disabled={busy}>
-            <Text style={styles.goldText}>＋ Soo geli</Text>
+        <View style={styles.postActions}>
+          <TouchableOpacity onPress={() => toggleLike(item)}>
+            <Text style={styles.actionText}>
+              ♡ {likes[item.id] || 0}
+            </Text>
           </TouchableOpacity>
-        )}
+
+          <TouchableOpacity onPress={() => openPost(item)}>
+            <Text style={styles.actionText}>Faallo</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => sharePost(item)}>
+            <Text style={styles.actionText}>Wadaag</Text>
+          </TouchableOpacity>
+        </View>
 
         {role === "owner" && (
-          <TouchableOpacity style={styles.darkButton} onPress={() => setPrivateOpen(!privateOpen)}>
-            <Text style={styles.whiteText}>Qaybta gaarka ah</Text>
-          </TouchableOpacity>
-        )}
-
-        {role === "visitor" && (
-          <TouchableOpacity style={styles.darkButton} onPress={() => setLoginOpen(!loginOpen)}>
-            <Text style={styles.whiteText}>Owner/Admin gelitaan</Text>
-          </TouchableOpacity>
-        )}
-
-        {isManager && (
-          <TouchableOpacity style={styles.darkButton} onPress={signOut}>
-            <Text style={styles.whiteText}>Ka bax</Text>
-          </TouchableOpacity>
+          <Text style={styles.views}>
+            Daawasho: {viewCounts[item.id] || 0}
+          </Text>
         )}
       </View>
+    );
+  }
 
-      {loginOpen && (
-        <View style={styles.panel}>
-          <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#888" autoCapitalize="none" value={email} onChangeText={setEmail} />
-          <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#888" secureTextEntry value={password} onChangeText={setPassword} />
-          <TouchableOpacity style={styles.goldButton} onPress={signInOwner} disabled={busy}>
-            <Text style={styles.goldText}>{busy ? "Sug..." : "Soo gal"}</Text>
+  function HomeHeader() {
+    return (
+      <View>
+        <View style={styles.topBar}>
+          <View style={styles.brandRow}>
+            <View style={styles.smallLogo}>
+              <Text style={styles.logoText}>AV</Text>
+            </View>
+            <Text style={styles.brandName}>Abdiqadir Vision</Text>
+          </View>
+
+          <TouchableOpacity onPress={() => setActiveTab("Account")}>
+            <Text style={styles.topIcon}>♙</Text>
           </TouchableOpacity>
         </View>
-      )}
 
-      {privateOpen && role === "owner" && (
-        <View style={styles.panel}>
-          <Text style={styles.sectionTitle}>Xogta gaarka ah</Text>
-          <TextInput style={[styles.input, { minHeight: 70 }]} multiline placeholder="Ku qor xogtaada gaarka ah..." placeholderTextColor="#888" value={privateText} onChangeText={setPrivateText} />
-          <TouchableOpacity style={styles.goldButton} onPress={savePrivate}>
-            <Text style={styles.goldText}>Kaydi xogta</Text>
-          </TouchableOpacity>
-          {privateContent.map((item) => (
-            <Text key={item.id} style={styles.privateItem}>{item.content}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.countryScroll}
+        >
+          {countries.map(item => (
+            <TouchableOpacity
+              key={item}
+              onPress={() => setCountry(item)}
+              style={[
+                styles.countryButton,
+                country === item && styles.countryActive,
+              ]}
+            >
+              <Text style={[
+                styles.countryText,
+                country === item && styles.countryTextActive,
+              ]}>
+                {item}
+              </Text>
+            </TouchableOpacity>
           ))}
-        </View>
-      )}
+        </ScrollView>
 
-      <Text style={styles.sectionTitle}>Qoraallada iyo xusuusaha</Text>
-    </View>
-  ), [followOwner, isManager, busy, role, loginOpen, email, password, privateOpen, privateText, privateContent]);
+        <View style={styles.hero}>
+          <Text style={styles.heroTag}>ABDIQADIR VISION</Text>
+          <Text style={styles.heroTitle}>
+            Stories that connect East Africa.
+          </Text>
+          <Text style={styles.heroDescription}>
+            Warar, sheekooyin, muuqaallo iyo barnaamijyo.
+          </Text>
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {busy && (
-        <View style={styles.busy}>
-          <ActivityIndicator color="#D6AD48" />
-        </View>
-      )}
-
-      {selectedPost ? (
-        <ScrollView contentContainerStyle={{ padding: 16 }}>
-          <TouchableOpacity onPress={() => setSelectedPost(null)}>
-            <Text style={styles.back}>‹ Ku noqo</Text>
+          <TouchableOpacity
+            style={styles.heroButton}
+            onPress={() => setActiveTab("Episodes")}
+          >
+            <Text style={styles.heroButtonText}>
+              ▶  Daawo barnaamijyada
+            </Text>
           </TouchableOpacity>
 
-          <Text style={styles.postTitle}>{selectedPost.title}</Text>
+          <TouchableOpacity
+            style={styles.catalogButton}
+            onPress={() => setActiveTab("Episodes")}
+          >
+            <Text style={styles.catalogText}>
+              Eeg muuqaallada  →
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Latest episodes</Text>
+          {isManager && (
+            <TouchableOpacity onPress={uploadPost}>
+              <Text style={styles.uploadText}>＋ Soo geli</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  function AccountScreen() {
+    return (
+      <ScrollView contentContainerStyle={styles.accountScreen}>
+        <View style={styles.accountLogo}>
+          <Text style={styles.accountLogoText}>AV</Text>
+        </View>
+
+        <Text style={styles.accountTitle}>Abdiqadir Vision</Text>
+        <Text style={styles.muted}>
+          Your memories, safely stored.
+        </Text>
+
+        <View style={styles.accountPanel}>
+          <Text style={styles.sectionTitle}>Akoonkaaga</Text>
+          <Text style={styles.whiteText}>
+            Xaaladda: {isManager ? role : "Visitor"}
+          </Text>
+
+          {isManager ? (
+            <>
+              <TouchableOpacity style={styles.goldButton} onPress={uploadPost}>
+                <Text style={styles.goldButtonText}>＋ Soo geli warar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.darkButton}
+                onPress={() => setPrivateOpen(!privateOpen)}
+              >
+                <Text style={styles.whiteText}>Qaybta gaarka ah</Text>
+              </TouchableOpacity>
+
+              {privateOpen && role === "owner" && (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    multiline
+                    placeholder="Xogtaada gaarka ah..."
+                    placeholderTextColor="#888"
+                    value={privateText}
+                    onChangeText={setPrivateText}
+                  />
+                  <TouchableOpacity style={styles.goldButton} onPress={savePrivate}>
+                    <Text style={styles.goldButtonText}>Kaydi xogta</Text>
+                  </TouchableOpacity>
+
+                  {privateContent.map(item => (
+                    <Text key={item.id} style={styles.privateItem}>
+                      {item.content}
+                    </Text>
+                  ))}
+                </>
+              )}
+
+              <TouchableOpacity style={styles.darkButton} onPress={signOut}>
+                <Text style={styles.whiteText}>Ka bax</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.goldButton}
+                onPress={() => setLoginOpen(!loginOpen)}
+              >
+                <Text style={styles.goldButtonText}>Owner / Admin gelitaan</Text>
+              </TouchableOpacity>
+
+              {loginOpen && (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Email"
+                    placeholderTextColor="#888"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor="#888"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity
+                    style={styles.goldButton}
+                    onPress={signInOwner}
+                    disabled={busy}
+                  >
+                    <Text style={styles.goldButtonText}>
+                      {busy ? "Sug..." : "Soo gal"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
+    );
+  }
+
+  const displayedPosts = activeTab === "Episodes"
+    ? posts.filter(p => p.media_type === "video")
+    : posts;
+
+  if (selectedPost) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ScrollView contentContainerStyle={styles.detailScreen}>
+          <TouchableOpacity onPress={() => setSelectedPost(null)}>
+            <Text style={styles.back}>‹  Ku noqo</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.detailTitle}>{selectedPost.title}</Text>
 
           {selectedPost.media_type === "video" ? (
-            <TouchableOpacity style={styles.videoBox} onPress={() => Linking.openURL(selectedPost.media_url)}>
-              <Text style={styles.videoText}>▶ Fur muuqaalka</Text>
+            <TouchableOpacity
+              style={styles.videoDetail}
+              onPress={() => Linking.openURL(selectedPost.media_url)}
+            >
+              <Text style={styles.playIcon}>▶</Text>
+              <Text style={styles.whiteText}>Fur muuqaalka</Text>
             </TouchableOpacity>
           ) : (
-            <Image source={{ uri: selectedPost.media_url }} style={styles.detailImage} resizeMode="contain" />
+            <Image
+              source={{ uri: selectedPost.media_url }}
+              style={styles.detailImage}
+              resizeMode="contain"
+            />
           )}
 
           <Text style={styles.sectionTitle}>Faallooyinka</Text>
 
-          {comments.map((c) => (
+          {comments.map(c => (
             <View key={c.id} style={styles.comment}>
               <Text style={styles.commentName}>{c.display_name}</Text>
               <Text style={styles.whiteText}>{c.body}</Text>
             </View>
           ))}
 
-          <TextInput style={styles.input} placeholder="Magacaaga" placeholderTextColor="#888" value={displayName} onChangeText={setDisplayName} />
-          <TextInput style={styles.input} placeholder="Qor faallo..." placeholderTextColor="#888" value={commentText} onChangeText={setCommentText} />
+          <TextInput
+            style={styles.input}
+            placeholder="Magacaaga"
+            placeholderTextColor="#888"
+            value={displayName}
+            onChangeText={setDisplayName}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Qor faallo..."
+            placeholderTextColor="#888"
+            value={commentText}
+            onChangeText={setCommentText}
+          />
 
           <TouchableOpacity style={styles.goldButton} onPress={addComment}>
-            <Text style={styles.goldText}>Dir faallo</Text>
+            <Text style={styles.goldButtonText}>Dir faallo</Text>
           </TouchableOpacity>
         </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (activeTab === "Live") {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.topBar}>
+          <Text style={styles.brandName}>Abdiqadir Vision</Text>
+        </View>
+
+        <View style={styles.liveScreen}>
+          <Text style={styles.liveIcon}>◉</Text>
+          <Text style={styles.liveTitle}>Live Broadcast</Text>
+          <Text style={styles.muted}>
+            Baahinta tooska ah ee Abdiqadir Vision.
+          </Text>
+          <View style={styles.livePanel}>
+            <Text style={styles.whiteText}>
+              Baahinta Live-ka weli lama xirin.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {busy && (
+        <View style={styles.busy}>
+          <ActivityIndicator color={PURPLE} />
+        </View>
+      )}
+
+      {activeTab === "Account" ? (
+        <AccountScreen />
       ) : (
         <FlatList
-          data={posts}
-          keyExtractor={(item) => String(item.id)}
-          numColumns={2}
-          ListHeaderComponent={header}
+          data={displayedPosts}
+          keyExtractor={item => String(item.id)}
+          numColumns={1}
+          ListHeaderComponent={
+            activeTab === "Home"
+              ? <HomeHeader />
+              : <Text style={styles.sectionTitle}>Episodes</Text>
+          }
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#D6AD48" />}
-          ListEmptyComponent={loading ? <ActivityIndicator color="#D6AD48" /> : <Text style={styles.empty}>Weli waxba lama soo gelin.</Text>}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <TouchableOpacity onPress={() => openPost(item)}>
-                {item.media_type === "video" ? (
-                  <View style={styles.videoBox}>
-                    <Text style={styles.videoText}>▶ Muuqaal</Text>
-                  </View>
-                ) : (
-                  <Image source={{ uri: item.media_url }} style={styles.thumb} resizeMode="cover" />
-                )}
-                <Text style={styles.fileTitle} numberOfLines={2}>{item.title || "Abdiqadir Vision"}</Text>
-              </TouchableOpacity>
-
-              <View style={styles.cardActions}>
-                <TouchableOpacity onPress={() => toggleLike(item)}>
-                  <Text style={styles.actionText}>♡ {likes[item.id] || 0}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => sharePost(item)}>
-                  <Text style={styles.actionText}>Wadaag</Text>
-                </TouchableOpacity>
-              </View>
-
-              {role === "owner" && (
-                <Text style={styles.views}>Daawasho: {viewCounts[item.id] || 0}</Text>
-              )}
-            </View>
-          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={refresh}
+              tintColor={PURPLE}
+            />
+          }
+          ListEmptyComponent={
+            loading
+              ? <ActivityIndicator color={PURPLE} />
+              : <Text style={styles.empty}>
+                  Weli waxba lama soo gelin.
+                </Text>
+          }
+          renderItem={({ item }) => <PostCard item={item} />}
         />
       )}
+
+      <View style={styles.bottomNav}>
+        {[
+          ["Home", "⌂"],
+          ["Episodes", "▷"],
+          ["Live", "◉"],
+          ["Account", "♙"],
+        ].map(([name, symbol]) => (
+          <TouchableOpacity
+            key={name}
+            style={styles.navItem}
+            onPress={() => setActiveTab(name)}
+          >
+            <Text style={[
+              styles.navIcon,
+              activeTab === name && styles.navActive,
+            ]}>
+              {symbol}
+            </Text>
+            <Text style={[
+              styles.navLabel,
+              activeTab === name && styles.navActive,
+            ]}>
+              {name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </SafeAreaView>
   );
 }
@@ -590,178 +786,359 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#080B12",
+    backgroundColor: BG,
   },
   list: {
-    padding: 12,
-    paddingBottom: 40,
-  },
-  brand: {
-    alignItems: "center",
-    paddingVertical: 28,
-  },
-  logo: {
-    width: 76,
-    height: 76,
-    borderRadius: 22,
-    textAlign: "center",
-    textAlignVertical: "center",
-    overflow: "hidden",
-    backgroundColor: "#D6AD48",
-    color: "#080B12",
-    fontSize: 30,
-    fontWeight: "900",
-    marginBottom: 12,
-  },
-  title: {
-    color: "#FFFFFF",
-    fontSize: 25,
-    fontWeight: "900",
-  },
-  subtitle: {
-    color: "#A8A8A8",
-    marginTop: 6,
-  },
-  actions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 9,
-    marginBottom: 20,
-  },
-  goldButton: {
-    backgroundColor: "#D6AD48",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignItems: "center",
-    marginVertical: 5,
-  },
-  goldText: {
-    color: "#080B12",
-    fontWeight: "800",
-  },
-  darkButton: {
-    backgroundColor: "#202633",
-    paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 10,
-    marginVertical: 5,
+    paddingBottom: 20,
   },
-  whiteText: {
-    color: "#FFFFFF",
+  topBar: {
+    height: 65,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 17,
+    backgroundColor: "#FFFFFF",
   },
-  panel: {
-    backgroundColor: "#151B27",
-    padding: 15,
-    borderRadius: 14,
-    marginBottom: 18,
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  input: {
-    backgroundColor: "#202633",
-    color: "#FFFFFF",
-    padding: 13,
-    borderRadius: 9,
-    marginVertical: 6,
+  smallLogo: {
+    width: 39,
+    height: 39,
+    borderRadius: 22,
+    backgroundColor: GOLD,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
   },
-  sectionTitle: {
-    color: "#D6AD48",
+  logoText: {
+    color: "#111111",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  brandName: {
+    color: "#171725",
     fontSize: 19,
+    fontWeight: "900",
+  },
+  topIcon: {
+    fontSize: 27,
+    color: PURPLE,
+  },
+  countryScroll: {
+    backgroundColor: "#FFFFFF",
+    maxHeight: 55,
+    paddingHorizontal: 8,
+  },
+  countryButton: {
+    paddingHorizontal: 13,
+    paddingVertical: 14,
+    marginHorizontal: 3,
+    borderBottomWidth: 3,
+    borderBottomColor: "transparent",
+  },
+  countryActive: {
+    borderBottomColor: PURPLE,
+  },
+  countryText: {
+    fontSize: 12,
     fontWeight: "800",
-    marginTop: 18,
+    color: "#777787",
+  },
+  countryTextActive: {
+    color: "#29283A",
+  },
+  hero: {
+    backgroundColor: "#49347E",
+    borderRadius: 24,
+    padding: 23,
+    marginTop: 17,
+    marginBottom: 18,
+    minHeight: 275,
+    justifyContent: "center",
+  },
+  heroTag: {
+    color: "#E6D7FF",
+    fontWeight: "900",
+    fontSize: 12,
+    letterSpacing: 2,
     marginBottom: 12,
   },
-  privateItem: {
+  heroTitle: {
     color: "#FFFFFF",
-    backgroundColor: "#202633",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    fontSize: 27,
+    fontWeight: "900",
+    lineHeight: 34,
   },
-  card: {
-    flex: 1,
-    backgroundColor: "#151B27",
-    margin: 6,
-    padding: 9,
-    borderRadius: 13,
-    maxWidth: "48%",
+  heroDescription: {
+    color: "#E6DFF3",
+    fontSize: 14,
+    marginTop: 12,
+    lineHeight: 22,
   },
-  thumb: {
-    width: "100%",
-    height: 145,
-    borderRadius: 9,
-    backgroundColor: "#202633",
+  heroButton: {
+    backgroundColor: "#6250E8",
+    borderRadius: 35,
+    padding: 15,
+    alignItems: "center",
+    marginTop: 22,
   },
-  fileTitle: {
+  heroButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+  catalogButton: {
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+    borderRadius: 35,
+    padding: 13,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  catalogText: {
     color: "#FFFFFF",
     fontWeight: "700",
-    marginTop: 9,
-    minHeight: 35,
   },
-  cardActions: {
+  sectionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
+    alignItems: "center",
+    marginBottom: 10,
   },
-  actionText: {
-    color: "#D6AD48",
-    fontWeight: "700",
+  sectionTitle: {
+    color: "#6250B0",
+    fontSize: 19,
+    fontWeight: "900",
+    marginTop: 17,
+    marginBottom: 13,
   },
-  views: {
-    color: "#999999",
-    fontSize: 11,
-    marginTop: 8,
+  uploadText: {
+    color: PURPLE,
+    fontWeight: "800",
+  },
+  postCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 10,
+    marginBottom: 16,
+    elevation: 2,
+  },
+  postImage: {
+    width: "100%",
+    height: 210,
+    borderRadius: 13,
+    backgroundColor: "#E5E5EF",
+  },
+  postTitle: {
+    color: "#20202D",
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 10,
   },
   videoBox: {
-    height: 145,
-    backgroundColor: "#202633",
-    justifyContent: "center",
+    height: 205,
+    backgroundColor: "#201A36",
+    borderRadius: 13,
     alignItems: "center",
-    borderRadius: 9,
+    justifyContent: "center",
+  },
+  playIcon: {
+    fontSize: 39,
+    color: "#FFFFFF",
   },
   videoText: {
-    color: "#D6AD48",
+    color: "#FFFFFF",
     fontWeight: "800",
-    fontSize: 17,
+    marginTop: 8,
+  },
+  postActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 13,
+    paddingHorizontal: 5,
+  },
+  actionText: {
+    color: PURPLE,
+    fontWeight: "800",
+  },
+  views: {
+    color: "#888888",
+    marginTop: 8,
+    fontSize: 11,
+  },
+  bottomNav: {
+    height: 67,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#EEEEF3",
+  },
+  navItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+  },
+  navIcon: {
+    fontSize: 24,
+    color: "#8A8999",
+  },
+  navLabel: {
+    color: "#777787",
+    fontSize: 11,
+    marginTop: 2,
+  },
+  navActive: {
+    color: PURPLE,
+    fontWeight: "900",
   },
   empty: {
-    color: "#AAAAAA",
     textAlign: "center",
+    color: "#888888",
     marginTop: 35,
   },
   busy: {
     position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 10,
+    top: 12,
+    right: 12,
+    zIndex: 20,
+  },
+  accountScreen: {
+    padding: 20,
+    alignItems: "center",
+  },
+  accountLogo: {
+    width: 90,
+    height: 90,
+    borderRadius: 26,
+    backgroundColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 35,
+  },
+  accountLogoText: {
+    fontSize: 35,
+    color: "#111111",
+    fontWeight: "900",
+  },
+  accountTitle: {
+    color: "#222233",
+    fontSize: 26,
+    fontWeight: "900",
+    marginTop: 18,
+  },
+  muted: {
+    color: "#9999A6",
+    marginTop: 9,
+    textAlign: "center",
+  },
+  accountPanel: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 17,
+    marginTop: 35,
+  },
+  goldButton: {
+    backgroundColor: GOLD,
+    padding: 14,
+    borderRadius: 11,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  goldButtonText: {
+    color: "#111111",
+    fontWeight: "900",
+  },
+  darkButton: {
+    backgroundColor: "#29283A",
+    padding: 14,
+    borderRadius: 11,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  whiteText: {
+    color: "#FFFFFF",
+  },
+  input: {
+    backgroundColor: "#F0F0F6",
+    color: "#222222",
+    padding: 13,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  privateItem: {
+    color: "#333333",
+    backgroundColor: "#F0F0F6",
+    padding: 12,
+    marginTop: 8,
+    borderRadius: 9,
+  },
+  liveScreen: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 25,
+  },
+  liveIcon: {
+    fontSize: 65,
+    color: "#D52A4B",
+  },
+  liveTitle: {
+    color: "#222233",
+    fontSize: 26,
+    fontWeight: "900",
+    marginTop: 15,
+  },
+  livePanel: {
+    backgroundColor: "#29283A",
+    padding: 25,
+    borderRadius: 16,
+    width: "100%",
+    alignItems: "center",
+    marginTop: 30,
+  },
+  detailScreen: {
+    padding: 16,
+    paddingBottom: 35,
   },
   back: {
-    color: "#D6AD48",
-    fontSize: 17,
-    fontWeight: "800",
-    marginBottom: 15,
+    color: PURPLE,
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 18,
   },
-  postTitle: {
-    color: "#FFFFFF",
-    fontSize: 21,
-    fontWeight: "800",
+  detailTitle: {
+    color: "#222233",
+    fontSize: 22,
+    fontWeight: "900",
     marginBottom: 15,
   },
   detailImage: {
     width: "100%",
     height: 350,
-    backgroundColor: "#151B27",
-    borderRadius: 12,
+    backgroundColor: "#EEEEF3",
+    borderRadius: 13,
+  },
+  videoDetail: {
+    height: 230,
+    backgroundColor: "#201A36",
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
   },
   comment: {
-    backgroundColor: "#151B27",
-    padding: 12,
-    borderRadius: 9,
+    backgroundColor: "#29283A",
+    padding: 13,
+    borderRadius: 10,
     marginVertical: 5,
   },
   commentName: {
-    color: "#D6AD48",
-    fontWeight: "800",
+    color: GOLD,
+    fontWeight: "900",
     marginBottom: 5,
   },
 });
