@@ -1,15 +1,17 @@
-
+Writing
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, FlatList, Image, Linking,
   RefreshControl, SafeAreaView, ScrollView, Share,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
+  StatusBar, StyleSheet, Text, TextInput,
+  TouchableOpacity, View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
+// SUPABASE
 const SUPABASE_URL = "https://zzrvmgserllvieuswncp.supabase.co";
 const SUPABASE_KEY = "sb_publishable_uZ7EhY1iXJGlgC1W2xIXuQ_xTThCf0r";
 const OWNER_ID = "00b7f429-6632-465a-9a6f-7003f7564703";
@@ -25,11 +27,118 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const GOLD = "#D6AD48";
-const BG = "#F8F8FC";
-const PURPLE = "#6250E8";
-const DARK = "#29283A";
+const PURPLE = "#0755D9";
 
-const countries = ["SOMALIA", "KENYA", "DJIBOUTI", "ETHIOPIA", "ERITREA"];
+const CATEGORIES = [
+  { id: "all", icon: "▦", so: "Dhammaan", en: "All", sw: "Zote", ar: "الكل" },
+  { id: "video", icon: "▶", so: "Muuqaallo", en: "Videos", sw: "Video", ar: "فيديوهات" },
+  { id: "photo", icon: "▧", so: "Sawirro", en: "Photos", sw: "Picha", ar: "صور" },
+  { id: "program", icon: "▣", so: "Barnaamijyo", en: "Programs", sw: "Vipindi", ar: "برامج" },
+  { id: "story", icon: "▤", so: "Qisooyin", en: "Stories", sw: "Hadithi", ar: "قصص" },
+  { id: "awareness", icon: "✦", so: "Wacyigelin", en: "Awareness", sw: "Uhamasishaji", ar: "توعية" },
+  { id: "message", icon: "✉", so: "Fariimo", en: "Messages", sw: "Ujumbe", ar: "رسائل" },
+];
+
+const WORDS = {
+  so: {
+    home: "Home", episodes: "Barnaamijyo", live: "Live",
+    account: "Akoon", latest: "Waxyaabihii ugu dambeeyay",
+    upload: "Soo geli", watch: "Daawo", browse: "Eeg dhammaan",
+    comments: "Faallooyinka", send: "Dir faallo",
+    name: "Magacaaga", comment: "Qor faallo...",
+    login: "Owner / Admin gelitaan", email: "Email",
+    password: "Password", enter: "Soo gal", logout: "Ka bax",
+    settings: "Dejinta", language: "Luqadda",
+    appearance: "Muuqaalka", light: "Iftiin cad",
+    dark: "Iftiin madow", appname: "Magaca app-ka",
+    save: "Kaydi", search: "Raadi...",
+    empty: "Weli waxba lama soo gelin.",
+    private: "Qaybta gaarka ah", title: "Cinwaanka",
+    body: "Qoraalkaaga halkan ku qor",
+    category: "Qaybta", photo: "Sawir ama muuqaal",
+    follow: "Raac Abdiqadir Vision",
+    changeLogo: "Beddel logo-ga",
+    publish: "Daabac", cancel: "Jooji",
+  },
+  en: {
+    home: "Home", episodes: "Programs", live: "Live",
+    account: "Account", latest: "Latest updates",
+    upload: "Upload", watch: "Watch", browse: "Browse all",
+    comments: "Comments", send: "Send comment",
+    name: "Your name", comment: "Write a comment...",
+    login: "Owner / Admin login", email: "Email",
+    password: "Password", enter: "Sign in", logout: "Sign out",
+    settings: "Settings", language: "Language",
+    appearance: "Appearance", light: "Light mode",
+    dark: "Dark mode", appname: "App name",
+    save: "Save", search: "Search...",
+    empty: "Nothing has been uploaded yet.",
+    private: "Private section", title: "Title",
+    body: "Write your message here",
+    category: "Category", photo: "Photo or video",
+    follow: "Follow Abdiqadir Vision",
+    changeLogo: "Change logo",
+    publish: "Publish", cancel: "Cancel",
+  },
+  sw: {
+    home: "Nyumbani", episodes: "Vipindi", live: "Moja kwa moja",
+    account: "Akaunti", latest: "Vilivyowekwa hivi karibuni",
+    upload: "Pakia", watch: "Tazama", browse: "Tazama vyote",
+    comments: "Maoni", send: "Tuma maoni",
+    name: "Jina lako", comment: "Andika maoni...",
+    login: "Ingia Owner / Admin", email: "Barua pepe",
+    password: "Nenosiri", enter: "Ingia", logout: "Toka",
+    settings: "Mipangilio", language: "Lugha",
+    appearance: "Muonekano", light: "Mwanga",
+    dark: "Giza", appname: "Jina la app",
+    save: "Hifadhi", search: "Tafuta...",
+    empty: "Hakuna kilichowekwa bado.",
+    private: "Sehemu ya siri", title: "Kichwa",
+    body: "Andika ujumbe wako hapa",
+    category: "Aina", photo: "Picha au video",
+    follow: "Fuata Abdiqadir Vision",
+    changeLogo: "Badilisha logo",
+    publish: "Chapisha", cancel: "Ghairi",
+  },
+  ar: {
+    home: "الرئيسية", episodes: "البرامج", live: "مباشر",
+    account: "الحساب", latest: "أحدث المنشورات",
+    upload: "رفع", watch: "شاهد", browse: "عرض الكل",
+    comments: "التعليقات", send: "إرسال تعليق",
+    name: "اسمك", comment: "اكتب تعليقاً...",
+    login: "دخول المالك / المدير", email: "البريد الإلكتروني",
+    password: "كلمة المرور", enter: "دخول", logout: "خروج",
+    settings: "الإعدادات", language: "اللغة",
+    appearance: "المظهر", light: "الوضع الفاتح",
+    dark: "الوضع الداكن", appname: "اسم التطبيق",
+    save: "حفظ", search: "بحث...",
+    empty: "لم تتم إضافة أي منشورات بعد.",
+    private: "القسم الخاص", title: "العنوان",
+    body: "اكتب رسالتك هنا",
+    category: "القسم", photo: "صورة أو فيديو",
+    follow: "تابع Abdiqadir Vision",
+    changeLogo: "تغيير الشعار",
+    publish: "نشر", cancel: "إلغاء",
+  },
+};
+
+// Category information is stored inside the existing posts.title
+// field to avoid requiring a new database column.
+function encodeTitle(category, title) {
+  return `[[${category}]]${title}`;
+}
+
+function decodePost(post) {
+  const match = (post.title || "").match(/^\[(.*?)\](.*)$/);
+  return {
+    ...post,
+    category: match ? match[1] : (
+      post.media_type === "video" ? "video" :
+      post.media_type === "image" ? "photo" : "story"
+    ),
+    displayTitle: match ? match[2] : (post.title || "Abdiqadir Vision"),
+  };
+}
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -37,8 +146,19 @@ export default function App() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+
   const [activeTab, setActiveTab] = useState("Home");
-  const [country, setCountry] = useState("SOMALIA");
+  const [category, setCategory] = useState("all");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+
+  const [language, setLanguage] = useState("so");
+  const [dark, setDark] = useState(false);
+  const [appName, setAppName] = useState("Abdiqadir Vision");
+  const [nameDraft, setNameDraft] = useState("Abdiqadir Vision");
+  const [appLogo, setAppLogo] = useState(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,17 +173,32 @@ export default function App() {
   const [myLikes, setMyLikes] = useState({});
   const [viewCounts, setViewCounts] = useState({});
 
-  const [privateContent, setPrivateContent] = useState([]);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadBody, setUploadBody] = useState("");
+  const [uploadCategory, setUploadCategory] = useState("photo");
+
   const [privateOpen, setPrivateOpen] = useState(false);
   const [privateText, setPrivateText] = useState("");
-  const [uploadTitle, setUploadTitle] = useState("");
-
-  const [appLogo, setAppLogo] = useState(null);
+  const [privateContent, setPrivateContent] = useState([]);
 
   const userId = session?.user?.id;
   const isManager = role === "owner" || role === "admin";
+  const t = WORDS[language] || WORDS.so;
 
-  const ensureAnonymousSession = useCallback(async () => {
+  const colors = dark ? {
+    bg: "#10131D", card: "#1D2230", text: "#FFFFFF",
+    muted: "#A7AEC0", border: "#30394D", input: "#292F40",
+    hero: "#102E70",
+  } : {
+    bg: "#F5F7FC", card: "#FFFFFF", text: "#171D32",
+    muted: "#7B8295", border: "#E5E9F2", input: "#F0F2F8",
+    hero: "#0645C5",
+  };
+
+  const styles = makeStyles(colors);
+
+  const ensureSession = useCallback(async () => {
     const { data: { session: current } } =
       await supabase.auth.getSession();
 
@@ -72,8 +207,7 @@ export default function App() {
       return current;
     }
 
-    const { data, error } =
-      await supabase.auth.signInAnonymously();
+    const { data, error } = await supabase.auth.signInAnonymously();
 
     if (error) {
       console.warn(error.message);
@@ -84,7 +218,7 @@ export default function App() {
     return data.session;
   }, []);
 
-  const loadRole = useCallback(async (uid) => {
+  const loadRole = useCallback(async uid => {
     if (!uid) {
       setRole("visitor");
       return;
@@ -104,73 +238,30 @@ export default function App() {
     setRole(!error && data?.role === "admin" ? "admin" : "visitor");
   }, []);
 
-  const loadLogo = useCallback(async () => {
-    const { data, error } = await supabase
+  const loadSettings = useCallback(async () => {
+    try {
+      const values = await AsyncStorage.multiGet([
+        "av_language", "av_dark", "av_app_name",
+      ]);
+
+      if (values[0][1]) setLanguage(values[0][1]);
+      if (values[1][1]) setDark(values[1][1] === "true");
+      if (values[2][1]) {
+        setAppName(values[2][1]);
+        setNameDraft(values[2][1]);
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+
+    const { data } = await supabase
       .from("app_settings")
       .select("logo_url")
       .eq("id", 1)
       .maybeSingle();
 
-    if (!error && data?.logo_url) {
-      setAppLogo(data.logo_url);
-    }
+    if (data?.logo_url) setAppLogo(data.logo_url);
   }, []);
-
-  const changeLogo = async () => {
-    if (!isManager) return;
-
-    try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert("Oggolaansho", "Oggolow sawirrada telefoonka.");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        quality: 0.85,
-        allowsEditing: true,
-        aspect: [1, 1],
-      });
-
-      if (result.canceled || !result.assets?.length) return;
-
-      setBusy(true);
-
-      const asset = result.assets[0];
-      const path = `logo/abdiqadir-vision-${Date.now()}.jpg`;
-      const blob = await (await fetch(asset.uri)).blob();
-
-      const { error: uploadError } =
-        await supabase.storage.from(BUCKET).upload(path, blob, {
-          contentType: asset.mimeType || "image/jpeg",
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } =
-        supabase.storage.from(BUCKET).getPublicUrl(path);
-
-      const { error: saveError } = await supabase
-        .from("app_settings")
-        .upsert({
-          id: 1,
-          logo_url: urlData.publicUrl,
-        }, { onConflict: "id" });
-
-      if (saveError) throw saveError;
-
-      setAppLogo(urlData.publicUrl);
-      Alert.alert("Waa guul", "Sawirka app-ka waa la beddelay.");
-    } catch (e) {
-      Alert.alert("Khalad", e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const loadPosts = useCallback(async () => {
     const { data, error } = await supabase
@@ -180,9 +271,10 @@ export default function App() {
 
     if (error) throw error;
 
-    setPosts(data || []);
+    const decoded = (data || []).map(decodePost);
+    setPosts(decoded);
 
-    const ids = (data || []).map(p => p.id);
+    const ids = decoded.map(p => p.id);
 
     if (!ids.length) {
       setLikes({});
@@ -191,40 +283,34 @@ export default function App() {
       return;
     }
 
-    const [likeResult, viewResult, mineResult] = await Promise.all([
-      supabase.from("post_likes")
-        .select("post_id").in("post_id", ids),
-      supabase.from("post_views")
-        .select("post_id").in("post_id", ids),
+    const [lr, vr, mr] = await Promise.all([
+      supabase.from("post_likes").select("post_id").in("post_id", ids),
+      supabase.from("post_views").select("post_id").in("post_id", ids),
       userId
-        ? supabase.from("post_likes")
-            .select("post_id")
-            .eq("user_id", userId)
-            .in("post_id", ids)
+        ? supabase.from("post_likes").select("post_id")
+            .eq("user_id", userId).in("post_id", ids)
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (!likeResult.error) {
+    if (!lr.error) {
       const counts = {};
-      (likeResult.data || []).forEach(r => {
-        counts[r.post_id] = (counts[r.post_id] || 0) + 1;
+      (lr.data || []).forEach(x => {
+        counts[x.post_id] = (counts[x.post_id] || 0) + 1;
       });
       setLikes(counts);
     }
 
-    if (!viewResult.error) {
+    if (!vr.error) {
       const counts = {};
-      (viewResult.data || []).forEach(r => {
-        counts[r.post_id] = (counts[r.post_id] || 0) + 1;
+      (vr.data || []).forEach(x => {
+        counts[x.post_id] = (counts[x.post_id] || 0) + 1;
       });
       setViewCounts(counts);
     }
 
-    if (!mineResult.error) {
+    if (!mr.error) {
       const mine = {};
-      (mineResult.data || []).forEach(r => {
-        mine[r.post_id] = true;
-      });
+      (mr.data || []).forEach(x => { mine[x.post_id] = true; });
       setMyLikes(mine);
     }
   }, [userId]);
@@ -255,87 +341,56 @@ export default function App() {
     let mounted = true;
 
     (async () => {
-      const { data: { session: current } } =
-        await supabase.auth.getSession();
+      await loadSettings();
 
-      if (!mounted) return;
+      const current = await ensureSession();
+      if (current) await loadRole(current.user.id);
 
-      if (current) {
-        setSession(current);
-        await loadRole(current.user.id);
-      } else {
-        const anonymous = await ensureAnonymousSession();
-        if (anonymous) await loadRole(anonymous.user.id);
-      }
-
-      if (mounted) {
-        await loadLogo();
-        await refresh();
-      }
+      if (mounted) await refresh();
     })();
 
-    const { data: listener } =
-      supabase.auth.onAuthStateChange((_event, nextSession) => {
-        setSession(nextSession);
-        if (nextSession?.user?.id) {
-          loadRole(nextSession.user.id);
-        } else {
-          setRole("visitor");
-        }
-      });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, next) => {
+        setSession(next);
+        if (next?.user?.id) loadRole(next.user.id);
+        else setRole("visitor");
+      }
+    );
 
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [ensureAnonymousSession, loadRole, refresh, loadLogo]);
+  }, [ensureSession, loadRole, loadSettings, refresh]);
 
   useEffect(() => {
     loadPrivate();
   }, [loadPrivate]);
 
-  async function signInOwner() {
-    if (!email.trim() || !password) {
-      Alert.alert("Gelitaan", "Geli email-ka iyo password-ka.");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-      if (error) throw error;
-
-      setSession(data.session);
-      await loadRole(data.user.id);
-      setLoginOpen(false);
-      setPassword("");
-      Alert.alert("Waa guul", "Waad soo gashay.");
-    } catch (e) {
-      Alert.alert("Gelitaan", e.message);
-    } finally {
-      setBusy(false);
-    }
+  async function saveSetting(key, value) {
+    await AsyncStorage.setItem(key, String(value));
   }
 
-  async function signOut() {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      Alert.alert("Khalad", error.message);
-      return;
-    }
-
-    setSession(null);
-    setRole("visitor");
-    await ensureAnonymousSession();
+  async function changeLanguage(value) {
+    setLanguage(value);
+    await saveSetting("av_language", value);
   }
 
-  async function uploadPost() {
+  async function changeTheme(value) {
+    setDark(value);
+    await saveSetting("av_dark", value);
+  }
+
+  async function saveAppName() {
+    const value = nameDraft.trim();
+    if (!value) return;
+
+    setAppName(value);
+    await saveSetting("av_app_name", value);
+    Alert.alert("Waa guul", "Magaca waa la kaydiyey.");
+  }
+
+  async function changeLogo() {
     if (!isManager) return;
 
     try {
@@ -348,49 +403,116 @@ export default function App() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images", "videos"],
+        mediaTypes: ["images"],
         quality: 0.85,
-        allowsEditing: false,
+        allowsEditing: true,
+        aspect: [1, 1],
       });
 
       if (result.canceled || !result.assets?.length) return;
 
-      const asset = result.assets[0];
       setBusy(true);
-
-      const ext = asset.fileName?.split(".").pop() ||
-        (asset.type === "video" ? "mp4" : "jpg");
-
-      const path = `posts/${Date.now()}-${Math.random()
-        .toString(36).slice(2, 8)}.${ext}`;
-
+      const asset = result.assets[0];
+      const path = `logo/av-${Date.now()}.jpg`;
       const blob = await (await fetch(asset.uri)).blob();
 
-      const contentType = asset.mimeType ||
-        (asset.type === "video" ? "video/mp4" : "image/jpeg");
-
-      const { error: uploadError } =
-        await supabase.storage.from(BUCKET).upload(path, blob, {
-          contentType,
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, blob, {
+          contentType: asset.mimeType || "image/jpeg",
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (error) throw error;
 
-      const { data: urlData } =
-        supabase.storage.from(BUCKET).getPublicUrl(path);
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
 
-      const { error: insertError } =
-        await supabase.from("posts").insert({
-          title: uploadTitle.trim() ||
-            asset.fileName || "Abdiqadir Vision",
-          media_url: urlData.publicUrl,
-          media_type: asset.type === "video" ? "video" : "image",
+      const { error: saveError } = await supabase
+        .from("app_settings")
+        .upsert({ id: 1, logo_url: data.publicUrl }, { onConflict: "id" });
+
+      if (saveError) throw saveError;
+
+      setAppLogo(data.publicUrl);
+      Alert.alert("Waa guul", "Logo-ga waa la beddelay.");
+    } catch (e) {
+      Alert.alert("Khalad", e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadPost() {
+    if (!isManager) return;
+
+    if (!uploadTitle.trim() && !uploadBody.trim()) {
+      Alert.alert("Xog", "Geli cinwaan ama qoraal.");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      let mediaUrl = "";
+      let mediaType = "text";
+
+      if (["photo", "video"].includes(uploadCategory)) {
+        const permission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (!permission.granted) {
+          Alert.alert("Oggolaansho", "Oggolow sawirrada telefoonka.");
+          return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: uploadCategory === "video"
+            ? ["videos"] : ["images"],
+          quality: 0.85,
+          allowsEditing: false,
         });
 
-      if (insertError) throw insertError;
+        if (result.canceled || !result.assets?.length) return;
+
+        const asset = result.assets[0];
+        const isVideo = asset.type === "video";
+        const ext = asset.fileName?.split(".").pop() ||
+          (isVideo ? "mp4" : "jpg");
+
+        const path = `posts/${Date.now()}-${Math.random()
+          .toString(36).slice(2, 8)}.${ext}`;
+
+        const blob = await (await fetch(asset.uri)).blob();
+        const contentType = asset.mimeType ||
+          (isVideo ? "video/mp4" : "image/jpeg");
+
+        const { error } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, blob, { contentType, upsert: false });
+
+        if (error) throw error;
+
+        mediaUrl = supabase.storage.from(BUCKET).getPublicUrl(path)
+          .data.publicUrl;
+
+        mediaType = isVideo ? "video" : "image";
+      }
+
+      const fullText = [
+        uploadTitle.trim() || uploadBody.trim().slice(0, 70),
+        uploadBody.trim(),
+      ].filter(Boolean).join(" — ");
+
+      const { error } = await supabase.from("posts").insert({
+        title: encodeTitle(uploadCategory, fullText),
+        media_url: mediaUrl || null,
+        media_type: mediaType,
+      });
+
+      if (error) throw error;
 
       setUploadTitle("");
+      setUploadBody("");
+      setUploadOpen(false);
       Alert.alert("Waa guul", "Waa la soo geliyey.");
       await refresh();
     } catch (e) {
@@ -417,8 +539,7 @@ export default function App() {
 
       if (!viewError) {
         setViewCounts(old => ({
-          ...old,
-          [post.id]: (old[post.id] || 0) + 1,
+          ...old, [post.id]: (old[post.id] || 0) + 1,
         }));
       }
     }
@@ -452,32 +573,21 @@ export default function App() {
   async function toggleLike(post) {
     if (!userId) return;
 
-    const { data: existing, error: findError } =
-      await supabase.from("post_likes")
-        .select("post_id")
-        .eq("post_id", post.id)
-        .eq("user_id", userId)
-        .maybeSingle();
+    const { data: existing, error } = await supabase
+      .from("post_likes").select("post_id")
+      .eq("post_id", post.id).eq("user_id", userId).maybeSingle();
 
-    if (findError) {
-      Alert.alert("Like", findError.message);
-      return;
-    }
+    if (error) return Alert.alert("Like", error.message);
 
     if (existing) {
-      const { error } = await supabase.from("post_likes")
-        .delete()
-        .eq("post_id", post.id)
-        .eq("user_id", userId);
-
-      if (error) return Alert.alert("Like", error.message);
+      const result = await supabase.from("post_likes").delete()
+        .eq("post_id", post.id).eq("user_id", userId);
+      if (result.error) return Alert.alert("Like", result.error.message);
     } else {
-      const { error } = await supabase.from("post_likes").insert({
-        post_id: post.id,
-        user_id: userId,
+      const result = await supabase.from("post_likes").insert({
+        post_id: post.id, user_id: userId,
       });
-
-      if (error) return Alert.alert("Like", error.message);
+      if (result.error) return Alert.alert("Like", result.error.message);
     }
 
     await refresh();
@@ -495,6 +605,41 @@ export default function App() {
     else Alert.alert("Waa guul", "Waad raacday Abdiqadir Vision.");
   }
 
+  async function signInOwner() {
+    if (!email.trim() || !password) {
+      Alert.alert("Gelitaan", "Geli email-ka iyo password-ka.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(), password,
+      });
+
+      if (error) throw error;
+
+      setSession(data.session);
+      await loadRole(data.user.id);
+      setLoginOpen(false);
+      setPassword("");
+      Alert.alert("Waa guul", "Waad soo gashay.");
+    } catch (e) {
+      Alert.alert("Gelitaan", e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) return Alert.alert("Khalad", error.message);
+
+    setSession(null);
+    setRole("visitor");
+    await ensureSession();
+  }
+
   async function savePrivate() {
     if (role !== "owner" || !privateText.trim()) return;
 
@@ -502,10 +647,7 @@ export default function App() {
       content: privateText.trim(),
     });
 
-    if (error) {
-      Alert.alert("Private", error.message);
-      return;
-    }
+    if (error) return Alert.alert("Private", error.message);
 
     setPrivateText("");
     await loadPrivate();
@@ -514,862 +656,10 @@ export default function App() {
 
   async function sharePost(post) {
     try {
-      await Share.share({ message: post.media_url });
+      await Share.share({
+        message: `${post.displayTitle}\n${post.media_url || ""}`,
+      });
     } catch {
       Alert.alert("Wadaag", "Lama wadaagi karin.");
     }
-  }
-
-  function Logo({ size = 43 }) {
-    return (
-      <View style={[
-        styles.logoBox,
-        { width: size, height: size, borderRadius: size * 0.3 }
-      ]}>
-        {appLogo ? (
-          <Image
-            source={{ uri: appLogo }}
-            style={styles.logoImage}
-          />
-        ) : (
-          <Text style={[styles.logoText, { fontSize: size * 0.42 }]}>
-            AV
-          </Text>
-        )}
-      </View>
-    );
-  }
-
-  function PostCard({ item }) {
-    return (
-      <View style={styles.postCard}>
-        <TouchableOpacity onPress={() => openPost(item)}>
-          {item.media_type === "video" ? (
-            <View style={styles.videoBox}>
-              <Text style={styles.playIcon}>▶</Text>
-              <Text style={styles.videoText}>Daawo muuqaalka</Text>
-            </View>
-          ) : (
-            <Image
-              source={{ uri: item.media_url }}
-              style={styles.postImage}
-              resizeMode="cover"
-            />
-          )}
-
-          <Text style={styles.postTitle} numberOfLines={2}>
-            {item.title || "Abdiqadir Vision"}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={styles.postActions}>
-          <TouchableOpacity onPress={() => toggleLike(item)}>
-            <Text style={[
-              styles.actionText,
-              myLikes[item.id] && styles.likedText,
-            ]}>
-              {myLikes[item.id] ? "♥" : "♡"} {likes[item.id] || 0}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => openPost(item)}>
-            <Text style={styles.actionText}>Faallo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => sharePost(item)}>
-            <Text style={styles.actionText}>Wadaag</Text>
-          </TouchableOpacity>
-        </View>
-
-        {role === "owner" && (
-          <Text style={styles.views}>
-            Daawasho: {viewCounts[item.id] || 0}
-          </Text>
-        )}
-      </View>
-    );
-  }
-
-  function HomeHeader() {
-    return (
-      <View>
-        <View style={styles.topBar}>
-          <View style={styles.brandRow}>
-            <Logo size={42} />
-            <Text style={styles.brandName}>Abdiqadir Vision</Text>
-          </View>
-
-          <TouchableOpacity onPress={() => setActiveTab("Account")}>
-            <Text style={styles.topIcon}>♙</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.countryScroll}
-        >
-          {countries.map(item => (
-            <TouchableOpacity
-              key={item}
-              onPress={() => setCountry(item)}
-              style={[
-                styles.countryButton,
-                country === item && styles.countryActive,
-              ]}
-            >
-              <Text style={[
-                styles.countryText,
-                country === item && styles.countryTextActive,
-              ]}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <View style={styles.hero}>
-          <Text style={styles.heroTag}>ABDIQADIR VISION</Text>
-          <Text style={styles.heroTitle}>
-            Stories that connect East Africa.
-          </Text>
-          <Text style={styles.heroDescription}>
-            Warar, sheekooyin, muuqaallo iyo barnaamijyo.
-          </Text>
-
-          <TouchableOpacity
-            style={styles.heroButton}
-            onPress={() => setActiveTab("Episodes")}
-          >
-            <Text style={styles.heroButtonText}>
-              ▶ Daawo barnaamijyada
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.catalogButton}
-            onPress={() => setActiveTab("Episodes")}
-          >
-            <Text style={styles.catalogText}>
-              Eeg muuqaallada →
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Latest episodes</Text>
-          {isManager && (
-            <TouchableOpacity onPress={uploadPost}>
-              <Text style={styles.uploadText}>＋ Soo geli</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  }
-
-  function AccountScreen() {
-    return (
-      <ScrollView contentContainerStyle={styles.accountScreen}>
-        <TouchableOpacity
-          onPress={isManager ? changeLogo : undefined}
-          activeOpacity={isManager ? 0.7 : 1}
-          style={styles.logoChangeArea}
-        >
-          <Logo size={108} />
-          {isManager && (
-            <Text style={styles.changeLogoText}>
-              📷 Beddel sawirka app-ka
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <Text style={styles.accountTitle}>Abdiqadir Vision</Text>
-        <Text style={styles.muted}>
-          Your memories, safely stored.
-        </Text>
-
-        <View style={styles.accountPanel}>
-          <Text style={styles.sectionTitle}>Akoonkaaga</Text>
-
-          <Text style={styles.whiteText}>
-            Xaaladda: {isManager ? role : "Visitor"}
-          </Text>
-
-          {isManager ? (
-            <>
-              <TouchableOpacity
-                style={styles.goldButton}
-                onPress={changeLogo}
-                disabled={busy}
-              >
-                <Text style={styles.goldButtonText}>
-                  📷 Beddel sawirka app-ka
-                </Text>
-              </TouchableOpacity>
-
-              <TextInput
-                style={styles.input}
-                placeholder="Cinwaanka wararka..."
-                placeholderTextColor="#888"
-                value={uploadTitle}
-                onChangeText={setUploadTitle}
-              />
-
-              <TouchableOpacity
-                style={styles.goldButton}
-                onPress={uploadPost}
-                disabled={busy}
-              >
-                <Text style={styles.goldButtonText}>
-                  ＋ Soo geli warar
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.darkButton}
-                onPress={() => setPrivateOpen(!privateOpen)}
-              >
-                <Text style={styles.whiteText}>
-                  Qaybta gaarka ah
-                </Text>
-              </TouchableOpacity>
-
-              {privateOpen && role === "owner" && (
-                <>
-                  <TextInput
-                    style={styles.input}
-                    multiline
-                    placeholder="Xogtaada gaarka ah..."
-                    placeholderTextColor="#888"
-                    value={privateText}
-                    onChangeText={setPrivateText}
-                  />
-
-                  <TouchableOpacity
-                    style={styles.goldButton}
-                    onPress={savePrivate}
-                  >
-                    <Text style={styles.goldButtonText}>
-                      Kaydi xogta
-                    </Text>
-                  </TouchableOpacity>
-
-                  {privateContent.map(item => (
-                    <Text key={item.id} style={styles.privateItem}>
-                      {item.content}
-                    </Text>
-                  ))}
-                </>
-              )}
-
-              <TouchableOpacity
-                style={styles.darkButton}
-                onPress={signOut}
-              >
-                <Text style={styles.whiteText}>Ka bax</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={styles.goldButton}
-                onPress={() => setLoginOpen(!loginOpen)}
-              >
-                <Text style={styles.goldButtonText}>
-                  Owner / Admin gelitaan
-                </Text>
-              </TouchableOpacity>
-
-              {loginOpen && (
-                <>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email"
-                    placeholderTextColor="#888"
-                    autoCapitalize="none"
-                    value={email}
-                    onChangeText={setEmail}
-                  />
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="#888"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                  />
-
-                  <TouchableOpacity
-                    style={styles.goldButton}
-                    onPress={signInOwner}
-                    disabled={busy}
-                  >
-                    <Text style={styles.goldButtonText}>
-                      {busy ? "Sug..." : "Soo gal"}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </>
-          )}
-
-          <TouchableOpacity
-            style={styles.followButton}
-            onPress={followOwner}
-          >
-            <Text style={styles.followText}>
-              ＋ Raac Abdiqadir Vision
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    );
-  }
-
-  const displayedPosts = activeTab === "Episodes"
-    ? posts.filter(p => p.media_type === "video")
-    : posts;
-
-  if (selectedPost) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.detailScreen}>
-          <TouchableOpacity onPress={() => setSelectedPost(null)}>
-            <Text style={styles.back}>‹ Ku noqo</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.detailTitle}>
-            {selectedPost.title}
-          </Text>
-
-          {selectedPost.media_type === "video" ? (
-            <TouchableOpacity
-              style={styles.videoDetail}
-              onPress={() => Linking.openURL(selectedPost.media_url)}
-            >
-              <Text style={styles.playIcon}>▶</Text>
-              <Text style={styles.whiteText}>Fur muuqaalka</Text>
-            </TouchableOpacity>
-          ) : (
-            <Image
-              source={{ uri: selectedPost.media_url }}
-              style={styles.detailImage}
-              resizeMode="contain"
-            />
-          )}
-
-          <Text style={styles.sectionTitle}>Faallooyinka</Text>
-
-          {comments.map(c => (
-            <View key={c.id} style={styles.comment}>
-              <Text style={styles.commentName}>
-                {c.display_name}
-              </Text>
-              <Text style={styles.whiteText}>{c.body}</Text>
-            </View>
-          ))}
-
-          <TextInput
-            style={styles.input}
-            placeholder="Magacaaga"
-            placeholderTextColor="#888"
-            value={displayName}
-            onChangeText={setDisplayName}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Qor faallo..."
-            placeholderTextColor="#888"
-            value={commentText}
-            onChangeText={setCommentText}
-          />
-
-          <TouchableOpacity
-            style={styles.goldButton}
-            onPress={addComment}
-          >
-            <Text style={styles.goldButtonText}>Dir faallo</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  if (activeTab === "Live") {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.topBar}>
-          <View style={styles.brandRow}>
-            <Logo size={40} />
-            <Text style={styles.brandName}>Abdiqadir Vision</Text>
-          </View>
-        </View>
-
-        <View style={styles.liveScreen}>
-          <Text style={styles.liveIcon}>◉</Text>
-          <Text style={styles.liveTitle}>Live Broadcast</Text>
-          <Text style={styles.muted}>
-            Baahinta tooska ah ee Abdiqadir Vision.
-          </Text>
-          <View style={styles.livePanel}>
-            <Text style={styles.whiteText}>
-              Baahinta Live-ka weli lama xirin.
-            </Text>
-          </View>
-        </View>
-
-        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {busy && (
-        <View style={styles.busy}>
-          <ActivityIndicator color={PURPLE} size="large" />
-        </View>
-      )}
-
-      {activeTab === "Account" ? (
-        <AccountScreen />
-      ) : (
-        <FlatList
-          data={displayedPosts}
-          keyExtractor={item => String(item.id)}
-          ListHeaderComponent={
-            activeTab === "Home"
-              ? <HomeHeader />
-              : <Text style={styles.sectionTitle}>Episodes</Text>
-          }
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={refresh}
-              tintColor={PURPLE}
-            />
-          }
-          ListEmptyComponent={
-            loading
-              ? <ActivityIndicator color={PURPLE} />
-              : <Text style={styles.empty}>
-                  Weli waxba lama soo gelin.
-                </Text>
-          }
-          renderItem={({ item }) => <PostCard item={item} />}
-        />
-      )}
-
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
-    </SafeAreaView>
-  );
-}
-
-function BottomNav({ activeTab, setActiveTab }) {
-  return (
-    <View style={styles.bottomNav}>
-      {[
-        ["Home", "⌂"],
-        ["Episodes", "▷"],
-        ["Live", "◉"],
-        ["Account", "♙"],
-      ].map(([name, symbol]) => (
-        <TouchableOpacity
-          key={name}
-          style={styles.navItem}
-          onPress={() => setActiveTab(name)}
-        >
-          <Text style={[
-            styles.navIcon,
-            activeTab === name && styles.navActive,
-          ]}>
-            {symbol}
-          </Text>
-          <Text style={[
-            styles.navLabel,
-            activeTab === name && styles.navActive,
-          ]}>
-            {name}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG,
-  },
-  list: {
-    paddingHorizontal: 14,
-    paddingBottom: 20,
-  },
-  topBar: {
-    minHeight: 65,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    backgroundColor: "#FFFFFF",
-  },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  logoBox: {
-    backgroundColor: GOLD,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    marginRight: 10,
-  },
-  logoImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  logoText: {
-    color: "#111111",
-    fontWeight: "900",
-  },
-  brandName: {
-    color: "#171725",
-    fontSize: 19,
-    fontWeight: "900",
-  },
-  topIcon: {
-    fontSize: 27,
-    color: PURPLE,
-  },
-  countryScroll: {
-    backgroundColor: "#FFFFFF",
-    maxHeight: 55,
-    paddingHorizontal: 8,
-  },
-  countryButton: {
-    paddingHorizontal: 13,
-    paddingVertical: 14,
-    marginHorizontal: 3,
-    borderBottomWidth: 3,
-    borderBottomColor: "transparent",
-  },
-  countryActive: {
-    borderBottomColor: PURPLE,
-  },
-  countryText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#777787",
-  },
-  countryTextActive: {
-    color: "#29283A",
-  },
-  hero: {
-    backgroundColor: "#49347E",
-    borderRadius: 20,
-    padding: 21,
-    marginTop: 14,
-    marginBottom: 17,
-    minHeight: 255,
-    justifyContent: "center",
-  },
-  heroTag: {
-    color: "#E6D7FF",
-    fontWeight: "900",
-    fontSize: 12,
-    letterSpacing: 2,
-    marginBottom: 12,
-  },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontSize: 26,
-    fontWeight: "900",
-    lineHeight: 34,
-  },
-  heroDescription: {
-    color: "#E6DFF3",
-    fontSize: 14,
-    marginTop: 12,
-    lineHeight: 22,
-  },
-  heroButton: {
-    backgroundColor: PURPLE,
-    borderRadius: 30,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  heroButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-  },
-  catalogButton: {
-    borderWidth: 1,
-    borderColor: "#FFFFFF",
-    borderRadius: 30,
-    padding: 12,
-    alignItems: "center",
-    marginTop: 9,
-  },
-  catalogText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  sectionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    color: "#6250B0",
-    fontSize: 19,
-    fontWeight: "900",
-    marginTop: 17,
-    marginBottom: 13,
-  },
-  uploadText: {
-    color: PURPLE,
-    fontWeight: "800",
-  },
-  postCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 17,
-    padding: 10,
-    marginBottom: 15,
-    elevation: 2,
-  },
-  postImage: {
-    width: "100%",
-    height: 210,
-    borderRadius: 12,
-    backgroundColor: "#E5E5EF",
-  },
-  postTitle: {
-    color: "#20202D",
-    fontSize: 16,
-    fontWeight: "800",
-    marginTop: 10,
-  },
-  videoBox: {
-    height: 205,
-    backgroundColor: DARK,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  playIcon: {
-    fontSize: 39,
-    color: "#FFFFFF",
-  },
-  videoText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    marginTop: 8,
-  },
-  postActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 13,
-    paddingHorizontal: 5,
-  },
-  actionText: {
-    color: PURPLE,
-    fontWeight: "800",
-  },
-  likedText: {
-    color: "#D52A4B",
-  },
-  views: {
-    color: "#888888",
-    marginTop: 8,
-    fontSize: 11,
-  },
-  bottomNav: {
-    height: 67,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEF3",
-  },
-  navItem: {
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  navIcon: {
-    fontSize: 24,
-    color: "#8A8999",
-  },
-  navLabel: {
-    color: "#777787",
-    fontSize: 11,
-    marginTop: 2,
-  },
-  navActive: {
-    color: PURPLE,
-    fontWeight: "900",
-  },
-  empty: {
-    textAlign: "center",
-    color: "#888888",
-    marginTop: 35,
-  },
-  busy: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 20,
-  },
-  accountScreen: {
-    padding: 20,
-    alignItems: "center",
-    paddingBottom: 35,
-  },
-  logoChangeArea: {
-    alignItems: "center",
-    marginTop: 22,
-  },
-  changeLogoText: {
-    color: PURPLE,
-    fontWeight: "800",
-    marginTop: 10,
-  },
-  accountTitle: {
-    color: "#222233",
-    fontSize: 26,
-    fontWeight: "900",
-    marginTop: 18,
-  },
-  muted: {
-    color: "#9999A6",
-    marginTop: 9,
-    textAlign: "center",
-  },
-  accountPanel: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 17,
-    marginTop: 30,
-  },
-  goldButton: {
-    backgroundColor: GOLD,
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 11,
-  },
-  goldButtonText: {
-    color: "#111111",
-    fontWeight: "900",
-  },
-  darkButton: {
-    backgroundColor: DARK,
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 11,
-  },
-  whiteText: {
-    color: "#FFFFFF",
-  },
-  input: {
-    backgroundColor: "#F0F0F6",
-    color: "#222222",
-    padding: 13,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  privateItem: {
-    color: "#333333",
-    backgroundColor: "#F0F0F6",
-    padding: 12,
-    marginTop: 8,
-    borderRadius: 9,
-  },
-  followButton: {
-    borderWidth: 1,
-    borderColor: GOLD,
-    padding: 13,
-    borderRadius: 11,
-    alignItems: "center",
-    marginTop: 15,
-  },
-  followText: {
-    color: "#6250B0",
-    fontWeight: "800",
-  },
-  liveScreen: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 25,
-  },
-  liveIcon: {
-    fontSize: 65,
-    color: "#D52A4B",
-  },
-  liveTitle: {
-    color: "#222233",
-    fontSize: 26,
-    fontWeight: "900",
-    marginTop: 15,
-  },
-  livePanel: {
-    backgroundColor: DARK,
-    padding: 25,
-    borderRadius: 16,
-    width: "100%",
-    alignItems: "center",
-    marginTop: 30,
-  },
-  detailScreen: {
-    padding: 16,
-    paddingBottom: 35,
-  },
-  back: {
-    color: PURPLE,
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 18,
-  },
-  detailTitle: {
-    color: "#222233",
-    fontSize: 22,
-    fontWeight: "900",
-    marginBottom: 15,
-  },
-  detailImage: {
-    width: "100%",
-    height: 350,
-    backgroundColor: "#EEEEF3",
-    borderRadius: 13,
-  },
-  videoDetail: {
-    height: 230,
-    backgroundColor: DARK,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  comment: {
-    backgroundColor: DARK,
-    padding: 13,
-    borderRadius: 10,
-    marginVertical: 5,
-  },
-  commentName: {
-    color: GOLD,
-    fontWeight: "900",
-    marginBottom: 5,
-  },
-});
+   }
